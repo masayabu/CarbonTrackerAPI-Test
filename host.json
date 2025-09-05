@@ -1,0 +1,35 @@
+{
+  "version": "2.0",
+  "http": {
+    "cors": {
+      "allowedOrigins": [
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "https://*.azurewebsites.net",
+        "https://*.azurestaticapps.net"
+      ],
+      "allowCredentials": true
+    }
+  },
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    }
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  },
+  "extensions": {
+    "http": {
+      "routePrefix": "api"
+    }
+  },
+  "functionTimeout": "00:05:00",
+  "managedDependency": {
+    "enabled": true
+  }
+}
