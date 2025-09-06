@@ -10,7 +10,8 @@
     "build": "tsc && npm run copy-config",
     "copy-config": "cp src/config.*.json dist/",
     "start": "func start",
-    "deploy:dev": "NODE_ENV=development func azure functionapp publish carbontracker-api-linux --javascript"
+    "deploy:dev": "NODE_ENV=development func azure functionapp publish carbontracker-api-linux --javascript",
+    "deploy:prod": "NODE_ENV=production func azure functionapp publish carbontracker-api-linux-new --javascript"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.1",

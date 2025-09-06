@@ -53,3 +53,5 @@ local.settings.json
 # Temporary files
 *.tmp
 *.temp
+## vs code
+*.code-workspace
