@@ -9,7 +9,13 @@
   "scripts": {
     "build": "tsc && npm run copy-config",
     "copy-config": "cp src/config.*.json dist/",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run build",
     "start": "func start",
+    "dev": "npm run build && func start",
+    "dev:watch": "nodemon",
+    "dev:hot": "npm run watch & func start",
     "deploy:dev": "NODE_ENV=development func azure functionapp publish carbontracker-api-linux --javascript",
     "deploy:prod": "NODE_ENV=production func azure functionapp publish carbontracker-api-linux-new --javascript"
   },
@@ -27,6 +33,8 @@
   "devDependencies": {
     "@types/node": "^20.19.1",
     "azure-functions-core-tools": "^4.0.5455",
+    "nodemon": "^3.0.2",
+    "rimraf": "^5.0.5",
     "typescript": "^5.8.3"
   }
 }
