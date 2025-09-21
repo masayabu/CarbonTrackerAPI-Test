@@ -20,6 +20,47 @@ interface ExportData {
 async function ExportData(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`Http function processed request for url "${request.url}"`);
 
+    // CORS設定
+    const allowedOrigins = corsOrigins.split(",").map((origin: string) => origin.trim());
+    const origin = request.headers.get("Origin") || "";
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+    // OPTIONS リクエストの処理
+    if (request.method === "OPTIONS") {
+        return {
+            status: 204,
+            headers: {
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Max-Age": "86400"
+            }
+        };
+    }
+
+    // JWT認証
+    const authResult = authenticateJWT(request, context);
+    if (!authResult.success) {
+        return authResult.response!;
+    }
+
+    const userPayload = authResult.payload!;
+    context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
+
+    // 権限チェック: 管理者権限が必要
+    if (!isAdminOrOperator(userPayload)) {
+        return {
+            status: 403,
+            headers: {
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ error: "Forbidden: Admin role required" })
+        };
+    }
+
     // 管理者用のため、groupIdは不要
     const url = new URL(request.url);
 
@@ -61,7 +102,8 @@ async function ExportData(request: HttpRequest, context: InvocationContext): Pro
             headers: {
                 "Content-Type": "application/json",
                 "Content-Disposition": `attachment; filename="carbon-tracker-backup-all-${new Date().toISOString().split('T')[0]}.json"`,
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true"
             },
             body: JSON.stringify(exportData, null, 2)
         };
@@ -75,11 +117,12 @@ async function ExportData(request: HttpRequest, context: InvocationContext): Pro
         
         return {
             status: 500,
-            body: JSON.stringify({ error: "Internal Server Error" }),
             headers: {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            }
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true"
+            },
+            body: JSON.stringify({ error: "Internal Server Error" })
         };
     }
 }

@@ -35,26 +35,12 @@ async function GetGroups(
   }
 
   // JWT認証
-  context.log("GetGroups: JWT認証を開始します");
-  
-  // 簡単な認証チェック
-  const authHeader = request.headers.get("Authorization");
-  context.log(`GetGroups: Authorization header: ${authHeader}`);
-  
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    context.log("GetGroups: 認証ヘッダーが見つかりません - 401エラーを返します");
-    return {
-      status: 401,
-      headers: {
-        "Access-Control-Allow-Origin": corsOrigin,
-        "Access-Control-Allow-Credentials": "true",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ error: "Unauthorized: Missing token" })
-    };
+  const authResult = authenticateJWT(request, context);
+  if (!authResult.success) {
+    return authResult.response!;
   }
-  
-  context.log("GetGroups: 認証ヘッダーが存在します");
+  // 認証成功
+  context.log("GetGroups: JWT認証に成功しました");
 
   interface Group {
     PartitionKey: string; // 例: "Groups"

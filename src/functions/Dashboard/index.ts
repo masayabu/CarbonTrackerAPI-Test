@@ -124,6 +124,36 @@ async function Dashboard(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  context.log(`Http function processed request for url "${request.url}"`);
+
+  // CORS設定
+  const allowedOrigins = corsOrigins.split(",").map((origin: string) => origin.trim());
+  const origin = request.headers.get("Origin") || "";
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+  // OPTIONS リクエストの処理
+  if (request.method === "OPTIONS") {
+    return {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": corsOrigin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400"
+      }
+    };
+  }
+
+  // JWT認証
+  const authResult = authenticateJWT(request, context);
+  if (!authResult.success) {
+    return authResult.response!;
+  }
+
+  const userPayload = authResult.payload!;
+  context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
+
   const client = TableClient.fromConnectionString(connectionString, tableName);
 
   // クエリパラメータからgroupIdとyearを取得
@@ -134,11 +164,12 @@ async function Dashboard(
   if (!groupId) {
     return {
       status: 400,
-      body: JSON.stringify({ error: "groupId parameter is required" }),
       headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
+        "Access-Control-Allow-Origin": corsOrigin,
+        "Access-Control-Allow-Credentials": "true",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ error: "groupId parameter is required" })
     };
   }
 
@@ -226,11 +257,12 @@ async function Dashboard(
 
   return {
     status: 200,
-    body: JSON.stringify(response),
     headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
-    }
+      "Access-Control-Allow-Origin": corsOrigin,
+      "Access-Control-Allow-Credentials": "true",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(response)
   };
 }
 
