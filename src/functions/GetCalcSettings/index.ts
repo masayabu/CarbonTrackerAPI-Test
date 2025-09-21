@@ -266,7 +266,7 @@ async function streamToString(readableStream: NodeJS.ReadableStream): Promise<st
 app.http('GetCalcSettings', {
   methods: ['GET', 'POST'],
   authLevel: 'anonymous',
-  route: 'calc-settings',
+  route: 'get-calc-settings',
   handler: GetCalcSettings
 });
 
