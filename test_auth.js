@@ -199,10 +199,10 @@ async function runTests() {
     // 2. 認証が必要なAPIのテスト
     const protectedAPIs = [
         { path: '/groups', method: 'GET' },
-        { path: '/group', method: 'POST' },
+        { path: '/groups/test-group-id', method: 'GET' },
         { path: '/productions?groupId=test-group-id', method: 'GET' },
         { path: '/production', method: 'POST' },
-        { path: '/dashboard', method: 'GET' },
+        { path: '/dashboard?groupId=test-group-id', method: 'GET' },
         { path: '/export-data', method: 'GET' }
     ];
 

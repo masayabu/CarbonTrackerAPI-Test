@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
-import jwt from "jsonwebtoken";
-import { jwtSecret, corsOrigins } from "../../config";
+import { authenticateJWT, JWTPayload } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 const connectionString = process.env.AzureWebJobsStorage!;
 const tableName = "GroupsTable";
@@ -26,51 +26,17 @@ async function GetGroup(request: HttpRequest, context: InvocationContext): Promi
         };
     }
 
+    // JWT認証
+    const authResult = authenticateJWT(request, context);
+    if (!authResult.success) {
+        return authResult.response!;
+    }
+
+    const userPayload = authResult.payload!;
+    context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
+
     try {
         const client = TableClient.fromConnectionString(connectionString, tableName);
-
-        // 認証情報から userId を取得（JWTより）
-        const token = request.headers.get("Authorization")?.replace("Bearer ", "");
-        if (!token) {
-            return {
-                status: 401,
-                headers: {
-                    "Access-Control-Allow-Origin": corsOrigin,
-                    "Access-Control-Allow-Credentials": "true",
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ error: "Unauthorized: Missing token" })
-            };
-        }
-
-        let decoded: { userId: string; email: string; role: string };
-        try {
-            decoded = jwt.verify(token, jwtSecret) as { userId: string; email: string; role: string };
-        } catch (error) {
-            context.error("JWT verification error:", error);
-            if (error instanceof Error && error.name === "JsonWebTokenError") {
-                return {
-                    status: 401,
-                    headers: {
-                        "Access-Control-Allow-Origin": corsOrigin,
-                        "Access-Control-Allow-Credentials": "true",
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ error: `Unauthorized: Invalid token (${error.message})` })
-                };
-            } else if (error instanceof Error && error.name === "TokenExpiredError") {
-                return {
-                    status: 401,
-                    headers: {
-                        "Access-Control-Allow-Origin": corsOrigin,
-                        "Access-Control-Allow-Credentials": "true",
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ error: "Unauthorized: Token expired" })
-                };
-            }
-            throw error;
-        }
 
         const groupId = request.params.groupId;
         if (!groupId) {
@@ -133,7 +99,7 @@ async function GetGroup(request: HttpRequest, context: InvocationContext): Promi
 app.http("GetGroup", {
     route: "groups/{groupId}",
     methods: ["GET", "OPTIONS"],
-    authLevel: "anonymous",
+    authLevel: "function",
     handler: GetGroup
 });
 
