@@ -1,13 +1,40 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 import { v4 as uuidv4 } from "uuid";
+import { authenticateJWT, JWTPayload, isAdminOrOperator } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 const connectionString = process.env.AzureWebJobsStorage!;
 const tableName = "GroupsTable";
 const partitionKey = "Groups"; // 固定値でもユーザー別でもOK
 
 async function CreateGroup(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+    // CORS設定
+    const allowedOrigins = corsOrigins.split(",").map((origin: string) => origin.trim());
+    const origin = request.headers.get("Origin") || "";
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+    // JWT認証
+    const authResult = authenticateJWT(request, context);
+    if (!authResult.success) {
+        return authResult.response!;
+    }
+
+    const userPayload = authResult.payload!;
+    context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
+
+    // 権限チェック: 管理者またはオペレーター権限が必要
+    if (!isAdminOrOperator(userPayload)) {
+        return {
+            status: 403,
+            headers: {
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ error: "Forbidden: Admin or operator role required" })
+        };
+    }
 
     interface GroupBody {
         PartitionKey: string; // 例: "Groups"
@@ -31,7 +58,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
         return {
             status: 400,
             headers: {
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": corsOrigin,
                 "Access-Control-Allow-Credentials": "true",
                 "Content-Type": "application/json",
               },
@@ -43,7 +70,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
         return {
             status: 400,
             headers: {
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": corsOrigin,
                 "Access-Control-Allow-Credentials": "true",
                 "Content-Type": "application/json",
               },
@@ -54,7 +81,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
         return {
             status: 400,
             headers: {
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": corsOrigin,
                 "Access-Control-Allow-Credentials": "true",
                 "Content-Type": "application/json",
               },
@@ -78,7 +105,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
         return {
             status: 201,
             headers: {
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": corsOrigin,
                 "Access-Control-Allow-Credentials": "true",
                 "Content-Type": "application/json",
               },
@@ -93,7 +120,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
         return {
             status: 500,
             headers: {
-                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Origin": corsOrigin,
                 "Access-Control-Allow-Credentials": "true",
                 "Content-Type": "application/json",
               },
@@ -104,7 +131,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
 
 app.http('CreateGroup', {
     methods: ['POST'],
-    authLevel: 'anonymous',
+    authLevel: 'function',
     route: "group",
     handler: CreateGroup
 });

@@ -1,5 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
+import { authenticateJWT, JWTPayload } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 const connectionString = process.env.AzureWebJobsStorage!;
 const tableName = "ProductionTable";
@@ -235,7 +237,7 @@ async function Dashboard(
 app.http("Dashboard", {
   methods: ["GET"],
   route: "dashboard",
-  authLevel: "anonymous",
+  authLevel: "function",
   handler: Dashboard
 });
 

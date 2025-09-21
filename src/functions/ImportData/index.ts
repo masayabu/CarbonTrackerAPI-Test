@@ -1,5 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
+import { authenticateJWT, JWTPayload, isAdminOrOperator } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 // Azure Table Storage 接続設定
 const connectionString = process.env.AzureWebJobsStorage!;

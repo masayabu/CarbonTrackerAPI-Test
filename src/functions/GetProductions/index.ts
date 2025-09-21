@@ -1,12 +1,26 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
+import { authenticateJWT, JWTPayload } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 // Azure Table Storage 接続設定
 const connectionString = process.env.AzureWebJobsStorage!;
 const tableName = "ProductionTable";
 
 async function GetProductions(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+    // CORS設定
+    const allowedOrigins = corsOrigins.split(",").map((origin: string) => origin.trim());
+    const origin = request.headers.get("Origin") || "";
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+    // JWT認証
+    const authResult = authenticateJWT(request, context);
+    if (!authResult.success) {
+        return authResult.response!;
+    }
+
+    const userPayload = authResult.payload!;
+    context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
 
     // クエリパラメータからgroupIdを取得
     const url = new URL(request.url);
@@ -18,7 +32,8 @@ async function GetProductions(request: HttpRequest, context: InvocationContext):
             body: JSON.stringify({ error: "groupId parameter is required" }),
             headers: {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true"
             }
         };
     }
@@ -41,7 +56,8 @@ async function GetProductions(request: HttpRequest, context: InvocationContext):
             body: JSON.stringify(productionEntities),
             headers: {
                 "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
+                "Access-Control-Allow-Origin": corsOrigin,
+                "Access-Control-Allow-Credentials": "true"
             }
         };
     } catch (error) {
@@ -57,14 +73,15 @@ async function GetProductions(request: HttpRequest, context: InvocationContext):
         body: "Internal Server Error",
         headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
+            "Access-Control-Allow-Origin": corsOrigin,
+            "Access-Control-Allow-Credentials": "true"
         }
     };
 }
 
 app.http('GetProductions', {
     methods: ['GET'],
-    authLevel: 'anonymous',
+    authLevel: 'function',
     route: "productions",
     handler: GetProductions
 });

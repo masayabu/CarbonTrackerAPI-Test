@@ -1,6 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 import { v4 as uuidv4 } from "uuid";
+import { authenticateJWT, JWTPayload } from "../../utils/auth";
+import { corsOrigins } from "../../config";
 
 // Azure Table Storage 接続設定
 const connectionString = process.env.AzureWebJobsStorage!;
@@ -8,7 +10,19 @@ const tableName = "ProductionTable";
 const partitionKey = "Production"; // 固定値でもユーザー別でもOK
 
 async function CreateProduction(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+    // CORS設定
+    const allowedOrigins = corsOrigins.split(",").map((origin: string) => origin.trim());
+    const origin = request.headers.get("Origin") || "";
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+    // JWT認証
+    const authResult = authenticateJWT(request, context);
+    if (!authResult.success) {
+        return authResult.response!;
+    }
+
+    const userPayload = authResult.payload!;
+    context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
         
     try {
         interface ProductionRequestBody {
@@ -144,7 +158,7 @@ async function CreateProduction(request: HttpRequest, context: InvocationContext
 
 app.http('CreateProduction', {
     methods: ['GET', 'POST'],
-    authLevel: 'anonymous',
+    authLevel: 'function',
     route: "production",
     handler: CreateProduction
 });
