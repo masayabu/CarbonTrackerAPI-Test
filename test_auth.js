@@ -45,6 +45,34 @@ const TEST_USERS = [
 // デフォルトのテストユーザー（既存の管理者ユーザー）
 const TEST_USER = TEST_USERS[0];
 
+// テスト用のサンプルデータ
+const SAMPLE_DATA = {
+    // CreateGroup用のサンプルデータ
+    createGroup: {
+        name: "テスト作成グループ",
+        description: "テスト用に作成されたグループです"
+    },
+    
+    // CreateProduction用のサンプルデータ
+    createProduction: {
+        date: new Date().toISOString().split('T')[0], // 今日の日付
+        materialType: "bamboo",
+        materialAmount: 100,
+        charcoalProduced: 25,
+        charcoalVolume: 30,
+        charcoalScale: "L500",
+        charcoalScaleInput: 25,
+        inputMethod: "scale",
+        extinguishingMethod: "oxygen",
+        co2Reduction: 73.5,
+        batchNumber: "TEST-001",
+        notes: "テスト用の生産記録です",
+        photoUrl: "",
+        userId: "", // ログイン後に設定
+        groupId: "21cbf8e7-31c7-4e4a-ac66-ebb50584000a"
+    }
+};
+
 /**
  * HTTPリクエストを送信する関数（fetch API使用）
  */
@@ -114,16 +142,24 @@ async function testLogin() {
 /**
  * 認証が必要なAPIのテスト
  */
-async function testProtectedAPI(token, apiPath, method = 'GET') {
+async function testProtectedAPI(token, apiPath, method = 'GET', body = null) {
     console.log(`\n🔒 ${apiPath} のテストを開始...`);
     
+    const requestOptions = {
+        method: method,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    };
+
+    // POSTリクエストの場合はボディを追加
+    if (body && (method === 'POST' || method === 'PUT')) {
+        requestOptions.body = body;
+    }
+    
     try {
-        const response = await makeRequest(`${BASE_URL}/api${apiPath}`, {
-            method: method,
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        const response = await makeRequest(`${BASE_URL}/api${apiPath}`, requestOptions);
 
         console.log(`ステータス: ${response.statusCode}`);
         
@@ -196,36 +232,72 @@ async function runTests() {
         return;
     }
 
-    // 2. 認証が必要なAPIのテスト
-    const protectedAPIs = [
+    // ログイン情報からuserIdを取得
+    const loginResponse = await makeRequest(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        body: TEST_USER
+    });
+    const loginData = JSON.parse(loginResponse.body);
+    const userId = loginData.userId;
+
+    // サンプルデータにuserIdを設定
+    SAMPLE_DATA.createProduction.userId = userId;
+
+    // 2. 認証が必要なAPIのテスト（GET）
+    const getAPIs = [
         { path: '/groups', method: 'GET' },
         { path: '/groups/test-group-id', method: 'GET' },
         { path: '/productions?groupId=test-group-id', method: 'GET' },
-        { path: '/production', method: 'POST' },
         { path: '/dashboard?groupId=test-group-id', method: 'GET' },
         { path: '/export-data', method: 'GET' }
     ];
 
     let successCount = 0;
-    for (const api of protectedAPIs) {
+    console.log('\n📊 GET APIテストを開始...');
+    for (const api of getAPIs) {
         const success = await testProtectedAPI(token, api.path, api.method);
         if (success) successCount++;
     }
 
-    // 3. 認証なしでのアクセステスト
+    // 3. 認証が必要なAPIのテスト（POST）
+    const postAPIs = [
+        { path: '/group', method: 'POST', body: SAMPLE_DATA.createGroup },
+        { path: '/production', method: 'POST', body: SAMPLE_DATA.createProduction }
+    ];
+
+    console.log('\n📊 POST APIテストを開始...');
+    for (const api of postAPIs) {
+        const success = await testProtectedAPI(token, api.path, api.method, api.body);
+        if (success) successCount++;
+    }
+
+    // 4. 認証なしでのアクセステスト
     console.log('\n🔒 認証なしアクセステストを開始...');
     let unauthorizedTestCount = 0;
-    for (const api of protectedAPIs) {
+    
+    // GET APIの認証なしテスト
+    for (const api of getAPIs) {
+        const success = await testUnauthorizedAccess(api.path, api.method);
+        if (success) unauthorizedTestCount++;
+    }
+    
+    // POST APIの認証なしテスト
+    for (const api of postAPIs) {
         const success = await testUnauthorizedAccess(api.path, api.method);
         if (success) unauthorizedTestCount++;
     }
 
-    // 4. 結果サマリー
-    console.log('\n📊 テスト結果サマリー:');
-    console.log(`認証ありAPIテスト: ${successCount}/${protectedAPIs.length} 成功`);
-    console.log(`認証なしアクセステスト: ${unauthorizedTestCount}/${protectedAPIs.length} 成功`);
+    // 5. 結果サマリー
+    const totalAPIs = getAPIs.length + postAPIs.length;
+    const totalUnauthorizedTests = getAPIs.length + postAPIs.length;
     
-    if (successCount === protectedAPIs.length && unauthorizedTestCount === protectedAPIs.length) {
+    console.log('\n📊 テスト結果サマリー:');
+    console.log(`認証ありAPIテスト: ${successCount}/${totalAPIs} 成功`);
+    console.log(`  - GET API: ${getAPIs.length}個`);
+    console.log(`  - POST API: ${postAPIs.length}個`);
+    console.log(`認証なしアクセステスト: ${unauthorizedTestCount}/${totalUnauthorizedTests} 成功`);
+    
+    if (successCount === totalAPIs && unauthorizedTestCount === totalUnauthorizedTests) {
         console.log('\n🎉 すべてのテストが成功しました！JWT認証システムは正しく動作しています。');
     } else {
         console.log('\n⚠️ 一部のテストが失敗しました。設定を確認してください。');
