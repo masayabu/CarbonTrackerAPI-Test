@@ -17,7 +17,9 @@
     "dev:watch": "nodemon",
     "dev:hot": "npm run watch & func start",
     "deploy:dev": "NODE_ENV=development func azure functionapp publish carbontracker-api-linux --javascript",
-    "deploy:prod": "NODE_ENV=production func azure functionapp publish carbontracker-api-linux-new --javascript"
+    "deploy:prod": "NODE_ENV=production func azure functionapp publish carbontracker-api-linux-new --javascript",
+    "test:yearly-report": "node tests/utils/run_yearly_report_test.js",
+    "test:auth": "node tests/api/test_auth.js"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.1",
