@@ -183,6 +183,126 @@ async function testNonExistentYear() {
 }
 
 /**
+ * 2023-09-24のデータ検証テスト
+ */
+async function testSpecificDateData2023_09_24() {
+    console.log('\n📅 2023-09-24のデータ検証テストを開始...');
+    
+    try {
+        const response = await makeRequest(`${BASE_URL}/api/reports/yearly/2023`);
+
+        if (response.statusCode === 200) {
+            const data = JSON.parse(response.body);
+            
+            // 9月のデータを取得（配列のインデックス8、0ベース）
+            const septemberData = data[8]; // 9月は配列の8番目
+            
+            if (septemberData && septemberData.month === 9) {
+                console.log('✅ 9月のデータが正しく取得されました');
+                console.log(`📊 9月のデータ:`, {
+                    month: septemberData.month,
+                    totalBamboo: septemberData.totalBamboo,
+                    totalCharcoal: septemberData.totalCharcoal,
+                    totalCO2Reduction: septemberData.totalCO2Reduction
+                });
+                
+                // 2023-09-24のデータが含まれているかチェック
+                if (septemberData.totalBamboo > 0 || septemberData.totalCharcoal > 0 || septemberData.totalCO2Reduction > 0) {
+                    console.log('✅ 2023-09-24のデータが9月の合計に反映されています');
+                    
+                    // データの妥当性をチェック
+                    const hasValidData = septemberData.totalBamboo >= 0 && 
+                                       septemberData.totalCharcoal >= 0 && 
+                                       septemberData.totalCO2Reduction >= 0;
+                    
+                    if (hasValidData) {
+                        console.log('✅ 9月のデータが妥当な値です');
+                        return { success: true, data: septemberData };
+                    } else {
+                        console.log('❌ 9月のデータに負の値が含まれています');
+                        return { success: false, error: 'Invalid data values' };
+                    }
+                } else {
+                    console.log('⚠️ 9月のデータが空です（2023-09-24のデータが登録されていない可能性があります）');
+                    return { success: false, error: 'No data found for September 2023' };
+                }
+            } else {
+                console.log('❌ 9月のデータが正しく取得されませんでした');
+                return { success: false, error: 'September data not found' };
+            }
+        } else {
+            console.log('❌ 年次レポートの取得に失敗しました');
+            return { success: false, error: `HTTP ${response.statusCode}` };
+        }
+    } catch (error) {
+        console.error('❌ 2023-09-24データ検証テストエラー:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 9月のデータ詳細検証
+ */
+async function validateSeptemberData(septemberData) {
+    console.log('\n🔍 9月のデータ詳細検証を開始...');
+    
+    let isValid = true;
+    
+    // データ型の確認
+    if (typeof septemberData.month !== 'number' || septemberData.month !== 9) {
+        console.log(`❌ month フィールドが正しくありません (期待値: 9, 実際: ${septemberData.month})`);
+        isValid = false;
+    }
+    
+    if (typeof septemberData.totalBamboo !== 'number') {
+        console.log(`❌ totalBamboo が数値ではありません (実際: ${typeof septemberData.totalBamboo})`);
+        isValid = false;
+    }
+    
+    if (typeof septemberData.totalCharcoal !== 'number') {
+        console.log(`❌ totalCharcoal が数値ではありません (実際: ${typeof septemberData.totalCharcoal})`);
+        isValid = false;
+    }
+    
+    if (typeof septemberData.totalCO2Reduction !== 'number') {
+        console.log(`❌ totalCO2Reduction が数値ではありません (実際: ${typeof septemberData.totalCO2Reduction})`);
+        isValid = false;
+    }
+    
+    // 値の妥当性確認
+    if (septemberData.totalBamboo < 0) {
+        console.log(`⚠️ totalBamboo が負の値です: ${septemberData.totalBamboo}`);
+    }
+    
+    if (septemberData.totalCharcoal < 0) {
+        console.log(`⚠️ totalCharcoal が負の値です: ${septemberData.totalCharcoal}`);
+    }
+    
+    if (septemberData.totalCO2Reduction < 0) {
+        console.log(`⚠️ totalCO2Reduction が負の値です: ${septemberData.totalCO2Reduction}`);
+    }
+    
+    // 2023-09-24のデータが含まれているかの確認
+    if (septemberData.totalBamboo > 0 || septemberData.totalCharcoal > 0 || septemberData.totalCO2Reduction > 0) {
+        console.log('✅ 2023-09-24のデータが9月の合計に含まれています');
+        console.log(`📈 9月の合計値:`);
+        console.log(`  - 竹材量: ${septemberData.totalBamboo}`);
+        console.log(`  - 炭生産量: ${septemberData.totalCharcoal}`);
+        console.log(`  - CO2削減量: ${septemberData.totalCO2Reduction}`);
+    } else {
+        console.log('⚠️ 9月にデータが登録されていません');
+    }
+    
+    if (isValid) {
+        console.log('✅ 9月のデータ詳細検証が完了しました');
+    } else {
+        console.log('❌ 9月のデータに問題があります');
+    }
+    
+    return isValid;
+}
+
+/**
  * レスポンス形式の詳細検証
  */
 async function validateResponseFormat(data) {
@@ -249,7 +369,9 @@ async function runYearlyReportTests() {
         yearlyReport2023: false,
         invalidYearParameter: false,
         nonExistentYear: false,
-        responseFormat: false
+        responseFormat: false,
+        specificDate2023_09_24: false,
+        septemberDataValidation: false
     };
     
     // 1. 2023年の年次レポート取得テスト
@@ -270,12 +392,24 @@ async function runYearlyReportTests() {
     const nonExistentYearResult = await testNonExistentYear();
     testResults.nonExistentYear = nonExistentYearResult.success;
     
-    // 4. 結果サマリー
+    // 4. 2023-09-24のデータ検証テスト
+    const specificDateResult = await testSpecificDateData2023_09_24();
+    testResults.specificDate2023_09_24 = specificDateResult.success;
+    
+    if (specificDateResult.success) {
+        // 9月のデータ詳細検証
+        const septemberValidation = await validateSeptemberData(specificDateResult.data);
+        testResults.septemberDataValidation = septemberValidation;
+    }
+    
+    // 5. 結果サマリー
     console.log('\n📊 テスト結果サマリー:');
     console.log(`2023年年次レポート取得: ${testResults.yearlyReport2023 ? '✅ 成功' : '❌ 失敗'}`);
     console.log(`レスポンス形式検証: ${testResults.responseFormat ? '✅ 成功' : '❌ 失敗'}`);
     console.log(`無効な年パラメータテスト: ${testResults.invalidYearParameter ? '✅ 実行済み' : '❌ 未実行'}`);
     console.log(`存在しない年のテスト: ${testResults.nonExistentYear ? '✅ 成功' : '❌ 失敗'}`);
+    console.log(`2023-09-24データ検証: ${testResults.specificDate2023_09_24 ? '✅ 成功' : '❌ 失敗'}`);
+    console.log(`9月データ詳細検証: ${testResults.septemberDataValidation ? '✅ 成功' : '❌ 失敗'}`);
     
     const successCount = Object.values(testResults).filter(Boolean).length;
     const totalTests = Object.keys(testResults).length;
@@ -300,6 +434,8 @@ module.exports = {
     testGetYearlyReport2023,
     testInvalidYearParameter,
     testNonExistentYear,
+    testSpecificDateData2023_09_24,
+    validateSeptemberData,
     validateResponseFormat,
     runYearlyReportTests
 };

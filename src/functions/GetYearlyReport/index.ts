@@ -22,7 +22,8 @@ async function GetYearlyReport(
   const monthlyTotals = Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
     totalBamboo: 0,
-    totalCharcoal: 0,
+    charcoalProduced: 0,
+    charcoalVolume: 0,
     totalCO2Reduction: 0,
   }));
 
@@ -39,7 +40,8 @@ async function GetYearlyReport(
 
       const month = date.getMonth(); // 0-based
       monthlyTotals[month].totalBamboo += Number(entity.bambooAmount || 0);
-      monthlyTotals[month].totalCharcoal += Number(entity.charcoalProduced || 0);
+      monthlyTotals[month].charcoalProduced += Number(entity.charcoalProduced || 0);
+      monthlyTotals[month].charcoalVolume += Number(entity.charcoalVolume || 0);
       monthlyTotals[month].totalCO2Reduction += Number(entity.co2Reduction || 0);
     }
 
