@@ -76,3 +76,7 @@ import "./functions/group-ranking";
 import { GroupRanking } from "./functions/group-ranking";
 import "./functions/group-rankings";
 import { GroupRankings } from "./functions/group-rankings";
+import "./functions/GetExtinguishingMethodRatio";
+import { GetExtinguishingMethodRatio } from "./functions/GetExtinguishingMethodRatio";
+import "./functions/CreateProductionSum";
+import { CreateProductionSum } from "./functions/CreateProductionSum";
