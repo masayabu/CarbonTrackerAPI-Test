@@ -84,3 +84,5 @@ import "./functions/UpdateUserPassword";
 import { UpdateUserPassword } from "./functions/UpdateUserPassword";
 import "./functions/GetUserByEmail";
 import { GetUserByEmail } from "./functions/GetUserByEmail";
+import "./functions/Health";
+import { Health } from "./functions/Health";
