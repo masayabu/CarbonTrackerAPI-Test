@@ -82,3 +82,5 @@ import "./functions/CreateProductionSum";
 import { CreateProductionSum } from "./functions/CreateProductionSum";
 import "./functions/UpdateUserPassword";
 import { UpdateUserPassword } from "./functions/UpdateUserPassword";
+import "./functions/GetUserByEmail";
+import { GetUserByEmail } from "./functions/GetUserByEmail";
