@@ -85,6 +85,7 @@ class AzureTableStorageClient:
             canonicalized_resource += f"?{parsed_url.query}"
         
         # 署名用の文字列を作成（Azure Table Storage用）
+        # Content-Typeが空の場合は空文字列を使用
         content_type_for_sign = content_type if content_type else ""
         string_to_sign = f"{method}\n\n{content_type_for_sign}\n{date_str}\n{canonicalized_resource}"
         
@@ -116,57 +117,97 @@ class AzureTableStorageClient:
             "x-ms-version": "2020-04-08"
         }
         
-        if method.upper() in ["POST", "PUT", "MERGE", "DELETE"]:
+        # Content-TypeはGETリクエスト以外の場合のみ追加
+        if method.upper() != "GET":
             headers["Content-Type"] = content_type
-            headers["Content-Length"] = str(content_length)
-        
-        # デバッグ情報を表示
-        print(f"  🔍 デバッグ情報:")
-        print(f"     URL: {url}")
-        print(f"     Method: {method}")
-        print(f"     Content-Type: {content_type_for_auth}")
-        print(f"     Auth Header: {auth_header[:50]}...")
-        
+            
         return headers
-    
-    def create_table_if_not_exists(self, table_name: str) -> bool:
-        """テーブルが存在しない場合は作成"""
-        url = f"{self.endpoint}/{table_name}"
-        headers = self._get_auth_headers("GET", url)
+        
+    def _make_request(self, method: str, url: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+        """HTTP リクエストを実行"""
+        if data:
+            json_data = json.dumps(data).encode('utf-8')
+            content_length = len(json_data)
+        else:
+            json_data = None
+            content_length = 0
+            
+        headers = self._get_auth_headers(method, url, content_length=content_length)
+        
+        if data:
+            headers["Content-Length"] = str(content_length)
+            
+        request = urllib.request.Request(url, data=json_data, headers=headers, method=method)
         
         try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as response:
-                return True
+            with urllib.request.urlopen(request) as response:
+                response_data = response.read().decode('utf-8')
+                if response_data:
+                    return json.loads(response_data)
+                return {}
         except urllib.error.HTTPError as e:
-            if e.code == 404:
-                # テーブルが存在しない場合は作成
-                print(f"テーブル '{table_name}' が見つかりません。作成します...")
-                return self._create_table(table_name)
+            error_data = e.read().decode('utf-8')
+            print(f"HTTP エラー {e.code}: {error_data}")
+            print(f"リクエストURL: {url}")
+            print(f"リクエストヘッダー: {headers}")
+            raise
+        except Exception as e:
+            print(f"リクエストエラー: {e}")
+            print(f"リクエストURL: {url}")
+            print(f"リクエストヘッダー: {headers}")
+            raise
+
+    def create_table_if_not_exists(self, table_name: str) -> bool:
+        """テーブルが存在しない場合は作成"""
+        # テーブル一覧を取得してテーブルの存在確認
+        tables_url = f"{self.endpoint}/{self.account_name}/Tables"
+        
+        try:
+            # テーブル一覧を取得
+            response = self._make_request("GET", tables_url)
+            tables = response.get("value", [])
+            
+            # 指定されたテーブルが存在するかチェック
+            table_exists = any(table.get("TableName") == table_name for table in tables)
+            
+            if table_exists:
+                print(f"テーブル '{table_name}' は既に存在します")
+                return True
             else:
-                print(f"テーブル確認エラー: {e.code} - {e.reason}")
-                # エラーレスポンスの詳細を表示
+                # テーブルが存在しない場合は作成
+                create_url = f"{self.endpoint}/{self.account_name}/Tables"
+                table_data = {"TableName": table_name}
+                
                 try:
-                    error_body = e.read().decode('utf-8')
-                    print(f"エラー詳細: {error_body}")
-                except:
-                    pass
-                return False
+                    self._make_request("POST", create_url, table_data)
+                    print(f"テーブル '{table_name}' を作成しました")
+                    return True
+                except Exception as create_error:
+                    print(f"テーブル作成エラー: {create_error}")
+                    return False
+                    
         except Exception as e:
             print(f"テーブル確認エラー: {e}")
             return False
     
     def _create_table(self, table_name: str) -> bool:
         """テーブルを作成"""
-        url = f"{self.endpoint}/{table_name}"
-        headers = self._get_auth_headers("POST", url, "application/json", 0)
-        
+        url = f"{self.endpoint}/Tables"
+        body_data = json.dumps({"TableName": table_name})
+        content_length = len(body_data.encode('utf-8'))
+
+        headers = self._get_auth_headers("POST", url, "application/json", content_length, is_table_operation=True)
+
         try:
-            req = urllib.request.Request(url, headers=headers, method="POST")
+            req = urllib.request.Request(url, data=body_data.encode('utf-8'), headers=headers, method="POST")
             with urllib.request.urlopen(req) as response:
                 print(f"テーブル '{table_name}' を作成しました")
                 return True
         except urllib.error.HTTPError as e:
+            # 409 Conflict はテーブルが既に存在する場合
+            if e.code == 409:
+                print(f"テーブル '{table_name}' は既に存在します。")
+                return True
             print(f"テーブル作成エラー: {e.code} - {e.reason}")
             try:
                 error_body = e.read().decode('utf-8')
@@ -180,51 +221,41 @@ class AzureTableStorageClient:
     
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """メールアドレスでユーザーを検索"""
-        # URLエンコード
+        # URLエンコード（スペースも含めて適切にエンコード）
         encoded_email = urllib.parse.quote(email, safe='')
         filter_query = f"$filter=email eq '{encoded_email}'"
-        url = f"{self.endpoint}/{TABLE_NAME}()?{filter_query}"
-        headers = self._get_auth_headers("GET", url)
+        # クエリパラメータ全体をエンコード
+        encoded_query = urllib.parse.quote(filter_query, safe='=')
+        url = f"{self.endpoint}/{self.account_name}/{TABLE_NAME}()?{encoded_query}"
         
         try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                users = data.get('value', [])
-                return users[0] if users else None
+            response = self._make_request("GET", url)
+            users = response.get('value', [])
+            return users[0] if users else None
         except Exception as e:
             print(f"ユーザー検索エラー: {e}")
             return None
     
     def list_all_users(self) -> list:
         """すべてのユーザーを取得"""
-        url = f"{self.endpoint}/{TABLE_NAME}()"
-        headers = self._get_auth_headers("GET", url)
+        url = f"{self.endpoint}/{self.account_name}/{TABLE_NAME}()"
         
         try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                return data.get('value', [])
+            response = self._make_request("GET", url)
+            return response.get('value', [])
         except Exception as e:
             print(f"ユーザー一覧取得エラー: {e}")
             return []
     
-    def create_user(self, user_data: Dict[str, Any]) -> bool:
-        """ユーザーを作成"""
-        # エンティティをJSONに変換
-        entity_json = json.dumps(user_data)
-        content_length = len(entity_json.encode('utf-8'))
-        
-        url = f"{self.endpoint}/{TABLE_NAME}"
-        headers = self._get_auth_headers("POST", url, "application/json", content_length)
+    def create_entity(self, table_name: str, entity: Dict[str, Any]) -> bool:
+        """エンティティを作成"""
+        url = f"{self.endpoint}/{self.account_name}/{table_name}()"
         
         try:
-            req = urllib.request.Request(url, data=entity_json.encode('utf-8'), headers=headers, method="POST")
-            with urllib.request.urlopen(req) as response:
-                return True
+            self._make_request("POST", url, entity)
+            return True
         except Exception as e:
-            print(f"ユーザー作成エラー: {e}")
+            print(f"エンティティ作成エラー: {e}")
             return False
 
 def hash_password(password: str) -> str:
@@ -319,7 +350,7 @@ def main():
         
         # ユーザーを作成
         print(f"  ユーザー '{email}' を作成中...")
-        if client.create_user(user_entity):
+        if client.create_entity(TABLE_NAME, user_entity):
             print(f"  ✅ ユーザー '{email}' を作成しました")
             created_count += 1
         else:

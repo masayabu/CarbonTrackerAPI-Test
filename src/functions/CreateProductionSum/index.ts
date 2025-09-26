@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
+import { BlobServiceClient } from "@azure/storage-blob";
 import { authenticateJWT, JWTPayload } from "../../utils/auth";
 import { corsOrigins } from "../../config";
 
@@ -13,6 +14,7 @@ interface ProductionData {
     partitionKey: string;
     rowKey: string;
     date: string;
+    materialType: string;
     materialAmount?: string;
     charcoalProduced?: string;
     charcoalVolume?: string;
@@ -29,8 +31,40 @@ interface ProductionSumData {
     charcoalProduced: number;
     charcoalVolume: number;
     co2Reduction: number;
+    carbonContent: number;
+    ipccLongTerm: number;
     createdAt: string;
     updatedAt: string;
+}
+
+interface CalcSettings {
+    carbonContentFactors: {
+        bamboo: number;
+        pruning: number;
+        herbaceous: number;
+        other: number;
+    };
+    co2ConversionFactor: number;
+    ipccLongTermFactors: {
+        bamboo: number;
+        pruning: number;
+        herbaceous: number;
+        other: number;
+    };
+}
+
+// ストリームを文字列に変換するヘルパー関数
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        readableStream.on('data', (data) => {
+            chunks.push(data instanceof Buffer ? data : Buffer.from(data));
+        });
+        readableStream.on('end', () => {
+            resolve(Buffer.concat(chunks).toString('utf8'));
+        });
+        readableStream.on('error', reject);
+    });
 }
 
 async function CreateProductionSum(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -49,26 +83,59 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
     context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
 
     try {
+        // calc-settingsから設定値を取得
+        const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+        const containerClient = blobServiceClient.getContainerClient("calc-settings");
+        const blobClient = containerClient.getBlobClient("setting.json");
+        
+        let calcSettings: CalcSettings;
+        try {
+            const downloadResponse = await blobClient.download();
+            const settingsText = await streamToString(downloadResponse.readableStreamBody!);
+            calcSettings = JSON.parse(settingsText);
+        } catch (error) {
+            context.log(`Warning: Could not load calc settings, using defaults: ${error}`);
+            // デフォルト値を使用
+            calcSettings = {
+                carbonContentFactors: {
+                    bamboo: 0.8,
+                    pruning: 0.8,
+                    herbaceous: 0.65,
+                    other: 0.8
+                },
+                co2ConversionFactor: 3.67,
+                ipccLongTermFactors: {
+                    bamboo: 0.8,
+                    pruning: 0.8,
+                    herbaceous: 0.65,
+                    other: 0.8
+                }
+            };
+        }
+
         // ProductionTableからデータを取得
         const productionClient = TableClient.fromConnectionString(connectionString, productionTableName);
         const productionEntities = productionClient.listEntities<ProductionData>();
 
-        // データを年とgroupIdでグループ化
+        // データを年、groupId、materialTypeでグループ化
         const groupedData = new Map<string, {
             year: string;
             groupId: string;
+            materialType: string;
             materialAmount: number;
             charcoalProduced: number;
             charcoalVolume: number;
             co2Reduction: number;
+            carbonContent: number;
+            ipccLongTerm: number;
         }>();
 
         for await (const entity of productionEntities) {
-            if (!entity.date || !entity.groupId) continue;
+            if (!entity.date || !entity.groupId || !entity.materialType) continue;
 
             // 日付から年を抽出
             const year = entity.date.split('-')[0];
-            const groupKey = `${year}-${entity.groupId}`;
+            const groupKey = `${year}-${entity.groupId}-${entity.materialType}`;
 
             // 数値変換用のヘルパー関数
             const parseNumber = (value: string | undefined): number => {
@@ -81,10 +148,13 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
                 groupedData.set(groupKey, {
                     year,
                     groupId: entity.groupId,
+                    materialType: entity.materialType,
                     materialAmount: 0,
                     charcoalProduced: 0,
                     charcoalVolume: 0,
-                    co2Reduction: 0
+                    co2Reduction: 0,
+                    carbonContent: 0,
+                    ipccLongTerm: 0
                 });
             }
 
@@ -93,6 +163,20 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
             group.charcoalProduced += parseNumber(entity.charcoalProduced);
             group.charcoalVolume += parseNumber(entity.charcoalVolume);
             group.co2Reduction += parseNumber(entity.co2Reduction);
+        }
+
+        // 各グループの計算を実行
+        for (const [groupKey, data] of groupedData) {
+            // carbonContent量の計算
+            const carbonContentFactor = calcSettings.carbonContentFactors[data.materialType as keyof typeof calcSettings.carbonContentFactors] || calcSettings.carbonContentFactors.other;
+            data.carbonContent = data.charcoalProduced * carbonContentFactor;
+
+            // co2Reduction量の計算
+            data.co2Reduction = data.carbonContent * calcSettings.co2ConversionFactor;
+
+            // ipccLongTerm量の計算
+            const ipccLongTermFactor = calcSettings.ipccLongTermFactors[data.materialType as keyof typeof calcSettings.ipccLongTermFactors] || calcSettings.ipccLongTermFactors.other;
+            data.ipccLongTerm = data.co2Reduction * ipccLongTermFactor;
         }
 
         // ProductionSumテーブルの作成と既存データの削除（洗い替え）
@@ -139,6 +223,8 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
                 charcoalProduced: data.charcoalProduced,
                 charcoalVolume: data.charcoalVolume,
                 co2Reduction: data.co2Reduction,
+                carbonContent: data.carbonContent,
+                ipccLongTerm: data.ipccLongTerm,
                 createdAt: currentTime,
                 updatedAt: currentTime
             };
