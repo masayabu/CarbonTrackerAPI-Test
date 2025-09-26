@@ -6,7 +6,8 @@
         "http://localhost:5000",
         "http://localhost:3000",
         "https://*.azurewebsites.net",
-        "https://*.azurestaticapps.net"
+        "https://*.azurestaticapps.net",
+        "https://carbontrackerstorage.z31.web.core.windows.net"
       ],
       "allowCredentials": true
     }
@@ -27,6 +28,9 @@
     "http": {
       "routePrefix": "api"
     }
+  },
+  "auth": {
+    "enabled": false
   },
   "functionTimeout": "00:05:00",
   "managedDependency": {

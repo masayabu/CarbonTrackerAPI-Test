@@ -48,10 +48,13 @@ async function GetProductionSum(
   }
 
   // JWT認証
+  context.log("GetProductionSum: Starting JWT authentication");
   const authResult = authenticateJWT(request, context);
   if (!authResult.success) {
+    context.log("GetProductionSum: JWT authentication failed");
     return authResult.response!;
   }
+  context.log("GetProductionSum: JWT authentication successful");
 
   const userPayload = authResult.payload!;
   context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
