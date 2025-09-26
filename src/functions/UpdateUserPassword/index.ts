@@ -102,7 +102,7 @@ async function UpdateUserPassword(request: HttpRequest, context: InvocationConte
 
   let passwordData: { currentPassword?: string; newPassword: string };
   try {
-    passwordData = await request.json();
+    passwordData = await request.json() as { currentPassword?: string; newPassword: string };
   } catch {
     return {
       status: 400,
@@ -163,7 +163,7 @@ async function UpdateUserPassword(request: HttpRequest, context: InvocationConte
       }
 
       // 現在のパスワードの検証
-      const isCurrentPasswordValid = await bcrypt.compare(passwordData.currentPassword, existing.passwordHash);
+      const isCurrentPasswordValid = await bcrypt.compare(passwordData.currentPassword, existing.passwordHash as string);
       if (!isCurrentPasswordValid) {
         return {
           status: 400,

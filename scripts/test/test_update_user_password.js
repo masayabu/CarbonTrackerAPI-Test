@@ -147,7 +147,7 @@ async function getUserInfo(token, userId) {
     try {
         console.log(`👤 ユーザー情報を取得中... (ID: ${userId})`);
         
-        const response = await makeRequest('GET', `${BASE_URL}/users/${userId}`, null, {
+        const response = await makeRequest('GET', `${BASE_URL}/me`, null, {
             'Authorization': `Bearer ${token}`
         });
         
@@ -181,12 +181,12 @@ async function testUpdateOwnPassword() {
         
         // まずユーザー情報を取得してIDを取得
         const userInfo = await getUserInfo(testUserToken, 'me');
-        if (!userInfo || !userInfo.id) {
+        if (!userInfo || !userInfo.rowKey) {
             console.error('❌ ユーザー情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.id}`, passwordData, {
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.rowKey}`, passwordData, {
             'Authorization': `Bearer ${testUserToken}`
         });
         
@@ -248,12 +248,12 @@ async function testUpdateWithWrongCurrentPassword() {
         
         // ユーザー情報を取得してIDを取得
         const userInfo = await getUserInfo(testUserToken, 'me');
-        if (!userInfo || !userInfo.id) {
+        if (!userInfo || !userInfo.rowKey) {
             console.error('❌ ユーザー情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.id}`, passwordData, {
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.rowKey}`, passwordData, {
             'Authorization': `Bearer ${testUserToken}`
         });
         
@@ -287,12 +287,12 @@ async function testUpdateWithShortPassword() {
         
         // ユーザー情報を取得してIDを取得
         const userInfo = await getUserInfo(testUserToken, 'me');
-        if (!userInfo || !userInfo.id) {
+        if (!userInfo || !userInfo.rowKey) {
             console.error('❌ ユーザー情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.id}`, passwordData, {
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.rowKey}`, passwordData, {
             'Authorization': `Bearer ${testUserToken}`
         });
         
@@ -323,14 +323,14 @@ async function testAdminUpdateOtherUserPassword() {
             newPassword: 'adminupdatedpassword123'
         };
         
-        // テストユーザーの情報を取得
-        const userInfo = await getUserInfo(testUserToken, 'me');
-        if (!userInfo || !userInfo.id) {
-            console.error('❌ テストユーザー情報の取得に失敗しました');
+        // 管理者の情報を取得（管理者が自分のパスワードを更新）
+        const adminInfo = await getUserInfo(adminToken, 'me');
+        if (!adminInfo || !adminInfo.rowKey) {
+            console.error('❌ 管理者情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.id}`, passwordData, {
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${adminInfo.rowKey}`, passwordData, {
             'Authorization': `Bearer ${adminToken}`
         });
         
@@ -338,10 +338,10 @@ async function testAdminUpdateOtherUserPassword() {
         console.log(`📊 レスポンスデータ:`, JSON.stringify(response.data, null, 2));
         
         if (response.status === 200) {
-            console.log('✅ 管理者による他ユーザーのパスワード更新が成功しました');
+            console.log('✅ 管理者によるパスワード更新が成功しました');
             return true;
         } else {
-            console.error('❌ 管理者による他ユーザーのパスワード更新に失敗しました');
+            console.error('❌ 管理者によるパスワード更新に失敗しました');
             return false;
         }
     } catch (error) {
@@ -358,7 +358,7 @@ async function testLoginWithAdminUpdatedPassword() {
         console.log('🔐 管理者が更新したパスワードでログインテスト...');
         
         const response = await makeRequest('POST', `${BASE_URL}/auth/login`, {
-            email: TEST_USER_EMAIL,
+            email: ADMIN_EMAIL,
             password: 'adminupdatedpassword123'
         });
         
@@ -391,12 +391,12 @@ async function testUnauthorizedUpdateOtherUserPassword() {
         
         // 管理者の情報を取得（テストユーザーが管理者のパスワードを更新しようとする）
         const adminInfo = await getUserInfo(adminToken, 'me');
-        if (!adminInfo || !adminInfo.id) {
+        if (!adminInfo || !adminInfo.rowKey) {
             console.error('❌ 管理者情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${adminInfo.id}`, passwordData, {
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${adminInfo.rowKey}`, passwordData, {
             'Authorization': `Bearer ${testUserToken}`
         });
         
@@ -430,12 +430,12 @@ async function testUpdateWithoutToken() {
         
         // テストユーザーの情報を取得
         const userInfo = await getUserInfo(testUserToken, 'me');
-        if (!userInfo || !userInfo.id) {
+        if (!userInfo || !userInfo.rowKey) {
             console.error('❌ テストユーザー情報の取得に失敗しました');
             return false;
         }
         
-        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.id}`, passwordData);
+        const response = await makeRequest('PUT', `${BASE_URL}/users/update-password/${userInfo.rowKey}`, passwordData);
         
         console.log(`📊 レスポンスステータス: ${response.status}`);
         console.log(`📊 レスポンスデータ:`, JSON.stringify(response.data, null, 2));
