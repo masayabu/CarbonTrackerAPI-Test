@@ -40,8 +40,8 @@ async function GetProductionSum(
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
         "Access-Control-Max-Age": "86400"
       }
     };
@@ -68,6 +68,8 @@ async function GetProductionSum(
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
         "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ error: "groupId parameter is required" })
@@ -121,6 +123,8 @@ async function GetProductionSum(
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
         "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(response)
@@ -134,6 +138,8 @@ async function GetProductionSum(
       headers: {
         "Access-Control-Allow-Origin": corsOrigin,
         "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ 

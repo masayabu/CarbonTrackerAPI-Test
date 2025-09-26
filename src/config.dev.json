@@ -1,6 +1,6 @@
 {
   "environment": "development",
-  "corsOrigins": "http://localhost:5000,http://localhost:3000",
+  "corsOrigins": "http://localhost:5000,http://localhost:3000,https://carbontrackerstorage.z31.web.core.windows.net",
   "jwtSecret": "default-jwt-secret",
   "tableName": "ProductionTable",
   "partitionKey": "Production"
