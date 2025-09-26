@@ -158,7 +158,7 @@ async function CreateProduction(request: HttpRequest, context: InvocationContext
 
 app.http('CreateProduction', {
     methods: ['GET', 'POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: "production",
     handler: CreateProduction
 });

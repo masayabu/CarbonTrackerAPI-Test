@@ -276,7 +276,7 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
 
 app.http('CreateProductionSum', {
     methods: ['GET', 'POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: "production-sum",
     handler: CreateProductionSum
 });

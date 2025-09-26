@@ -81,7 +81,7 @@ async function GetProductions(request: HttpRequest, context: InvocationContext):
 
 app.http('GetProductions', {
     methods: ['GET'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: "productions",
     handler: GetProductions
 });

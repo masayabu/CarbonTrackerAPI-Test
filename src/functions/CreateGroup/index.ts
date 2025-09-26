@@ -131,7 +131,7 @@ async function CreateGroup(request: HttpRequest, context: InvocationContext): Pr
 
 app.http('CreateGroup', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: "group",
     handler: CreateGroup
 });

@@ -269,7 +269,7 @@ async function Dashboard(
 app.http("Dashboard", {
   methods: ["GET"],
   route: "dashboard",
-  authLevel: "function",
+  authLevel: "anonymous",
   handler: Dashboard
 });
 

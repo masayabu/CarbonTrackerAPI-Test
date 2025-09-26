@@ -99,7 +99,7 @@ async function GetGroup(request: HttpRequest, context: InvocationContext): Promi
 app.http("GetGroup", {
     route: "groups/{groupId}",
     methods: ["GET", "OPTIONS"],
-    authLevel: "function",
+    authLevel: "anonymous",
     handler: GetGroup
 });
 

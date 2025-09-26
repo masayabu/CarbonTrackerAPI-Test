@@ -90,7 +90,7 @@ async function GetGroups(
 
 app.http("GetGroups", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "groups",
   handler: GetGroups,
 });

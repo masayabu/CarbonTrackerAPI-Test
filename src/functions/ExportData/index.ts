@@ -129,7 +129,7 @@ async function ExportData(request: HttpRequest, context: InvocationContext): Pro
 
 app.http('ExportData', {
     methods: ['GET'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     route: "export-data",
     handler: ExportData
 });
