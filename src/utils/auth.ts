@@ -96,7 +96,8 @@ export function authenticateJWT(
       payload: decoded
     };
   } catch (error) {
-    context.error("JWT verification error:", error);
+    // 💡 JWTのエラー名とメッセージをログに出力するように変更
+    context.error("JWT verification error:", error instanceof Error ? error.name : "Unknown", error instanceof Error ? error.message : String(error));
     
     if (error instanceof Error && error.name === "JsonWebTokenError") {
       return {
