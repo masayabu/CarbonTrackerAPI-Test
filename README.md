@@ -223,6 +223,12 @@ python create_admin_user_staging.py --non-interactive
 | GET | `/api/calc-settings` | 計算設定取得 | 認証済み |
 | POST | `/api/calc-settings` | 計算設定保存 | admin, operator |
 
+### 生産データ集計
+
+| メソッド | エンドポイント | 説明 | 権限 |
+|---------|---------------|------|------|
+| POST | `/api/production-sum` | 生産データ集計実行 | 認証済み |
+
 ### ユーティリティ
 
 | メソッド | エンドポイント | 説明 | 権限 |
@@ -230,6 +236,45 @@ python create_admin_user_staging.py --non-interactive
 | POST | `/api/carbonization-volume` | CO2固定量計算 | 認証済み |
 | GET | `/api/check-role` | ユーザーロール確認 | 認証済み |
 | GET | `/api/test` | テストエンドポイント | 認証済み |
+
+## 自動実行機能
+
+### Timer Trigger
+
+システムには以下の自動実行機能が含まれています：
+
+#### 生産データ集計の自動実行
+
+- **関数名**: `CreateProductionSumTimer`
+- **実行スケジュール**: 毎日深夜0:00（CRON形式: `0 0 0 * * *`）
+- **機能**: 
+  - ProductionTableからデータを取得
+  - 年、groupId、materialTypeでグループ化
+  - 以下の項目を合計・計算：
+    - `materialAmount`（材料量）
+    - `charcoalProduced`（炭生産量）
+    - `charcoalVolume`（炭体積）
+    - `co2Reduction`（CO2削減量）
+    - `carbonContent`（炭素含有量）
+    - `ipccLongTerm`（IPCC長期係数適用値）
+  - ProductionSumTableに結果を保存（既存データは洗い替え）
+
+#### 計算ロジック
+
+1. **炭素含有量計算**: `charcoalProduced × carbonContentFactors[materialType]`
+2. **CO2削減量計算**: `carbonContent × co2ConversionFactor`
+3. **IPCC長期係数適用**: `co2Reduction × ipccLongTermFactors[materialType]`
+
+#### 設定値の取得
+
+- Azure Blob Storageの`calc-settings`コンテナから`setting.json`を取得
+- 設定ファイルが存在しない場合はデフォルト値を使用
+
+#### 監視・ログ
+
+- Azure Functionsのログに実行結果を出力
+- エラー時はAzure Functionsに失敗として通知
+- Azure Portalで実行履歴とログを確認可能
 
 ## デプロイ
 

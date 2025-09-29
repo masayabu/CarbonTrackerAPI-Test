@@ -80,6 +80,8 @@ import "./functions/GetExtinguishingMethodRatio";
 import { GetExtinguishingMethodRatio } from "./functions/GetExtinguishingMethodRatio";
 import "./functions/CreateProductionSum";
 import { CreateProductionSum } from "./functions/CreateProductionSum";
+import "./functions/CreateProductionSumTimer";
+import { CreateProductionSumTimer } from "./functions/CreateProductionSumTimer";
 import "./functions/UpdateUserPassword";
 import { UpdateUserPassword } from "./functions/UpdateUserPassword";
 import "./functions/GetUserByEmail";
