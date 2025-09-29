@@ -82,24 +82,6 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
     const userPayload = authResult.payload!;
     context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
 
-    // クエリパラメータからgroupIdを取得
-    const url = new URL(request.url);
-    const groupId = url.searchParams.get('groupId');
-    
-    if (!groupId) {
-        return {
-            status: 400,
-            headers: {
-                "Access-Control-Allow-Origin": corsOrigin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ error: "groupId parameter is required" })
-        };
-    }
-
     try {
         // calc-settingsから設定値を取得
         const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
@@ -131,11 +113,9 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
             };
         }
 
-        // ProductionTableからデータを取得（指定されたグループのみ）
+        // ProductionTableからデータを取得
         const productionClient = TableClient.fromConnectionString(connectionString, productionTableName);
-        const productionEntities = productionClient.listEntities<ProductionData>({
-            queryOptions: { filter: `groupId eq '${groupId}'` }
-        });
+        const productionEntities = productionClient.listEntities<ProductionData>();
 
         // データを年、groupId、materialTypeでグループ化
         const groupedData = new Map<string, {
@@ -212,10 +192,8 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
         }
         
         try {
-            // 指定されたグループの既存エンティティを取得して削除
-            const existingEntities = productionSumClient.listEntities<ProductionSumData>({
-                queryOptions: { filter: `groupId eq '${groupId}'` }
-            });
+            // 既存のエンティティを取得して削除
+            const existingEntities = productionSumClient.listEntities<ProductionSumData>();
             const deletePromises: Promise<void>[] = [];
 
             for await (const entity of existingEntities) {
@@ -270,8 +248,7 @@ async function CreateProductionSum(request: HttpRequest, context: InvocationCont
             },
             body: JSON.stringify({
                 message: "Production sum data created successfully",
-                groupId: groupId,
-                totalRecords: groupedData.size,
+                totalGroups: groupedData.size,
                 data: Array.from(groupedData.values())
             })
         };

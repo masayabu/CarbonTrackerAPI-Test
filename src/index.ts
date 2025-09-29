@@ -86,5 +86,3 @@ import "./functions/GetUserByEmail";
 import { GetUserByEmail } from "./functions/GetUserByEmail";
 import "./functions/Health";
 import { Health } from "./functions/Health";
-import "./functions/GetGroupRankingFromSum";
-import { GetGroupRankingFromSum } from "./functions/GetGroupRankingFromSum";
