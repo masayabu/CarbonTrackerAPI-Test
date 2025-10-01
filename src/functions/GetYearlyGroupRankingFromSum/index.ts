@@ -23,7 +23,7 @@ interface ProductionSumEntity {
   [key: string]: any;
 }
 
-interface GroupRankingData {
+interface YearlyGroupRankingData {
   groupId: string;
   groupName: string;
   yearlyCharcoal: number;
@@ -31,15 +31,10 @@ interface GroupRankingData {
   yearlyCO2Reduction: number;
   yearlyCO2ReductionShortTerm: number;
   yearlyCO2ReductionLongTerm: number;
-  thisYearCO2Reduction: number;
-  totalCO2ReductionShortTerm: number;
-  totalCO2ReductionLongTerm: number;
-  totalCharcoal: number;
-  totalCharcoalVolume: number;
   introductionPdfUrl?: string | null;
 }
 
-async function GetGroupRankingFromSum(
+async function GetYearlyGroupRankingFromSum(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -65,22 +60,56 @@ async function GetGroupRankingFromSum(
   }
 
   // JWT認証
-  context.log("GetGroupRankingFromSum: Starting JWT authentication");
+  context.log("GetYearlyGroupRankingFromSum: Starting JWT authentication");
   const authResult = authenticateJWT(request, context);
   if (!authResult.success) {
-    context.log("GetGroupRankingFromSum: JWT authentication failed");
+    context.log("GetYearlyGroupRankingFromSum: JWT authentication failed");
     return authResult.response!;
   }
-  context.log("GetGroupRankingFromSum: JWT authentication successful");
+  context.log("GetYearlyGroupRankingFromSum: JWT authentication successful");
 
   const userPayload = authResult.payload!;
   context.log(`Http function processed request for url "${request.url}" by user: ${userPayload.email}`);
 
   try {
-    // 現在の年月を取得
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
+    // 年パラメータを取得
+    const url = new URL(request.url);
+    const yearParam = url.searchParams.get("year");
+    
+    if (!yearParam) {
+      return {
+        status: 400,
+        headers: {
+          "Access-Control-Allow-Origin": corsOrigin,
+          "Access-Control-Allow-Credentials": "true",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 
+          error: "Bad Request",
+          message: "Year parameter is required"
+        })
+      };
+    }
+
+    const targetYear = parseInt(yearParam);
+    if (isNaN(targetYear)) {
+      return {
+        status: 400,
+        headers: {
+          "Access-Control-Allow-Origin": corsOrigin,
+          "Access-Control-Allow-Credentials": "true",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 
+          error: "Bad Request",
+          message: "Invalid year parameter"
+        })
+      };
+    }
 
     // グループ情報を取得
     const groupClient = TableClient.fromConnectionString(connectionString, groupTableName);
@@ -93,7 +122,7 @@ async function GetGroupRankingFromSum(
       groupMap.set(groupId, { name: groupName, introductionPdfUrl });
     }
 
-    // ProductionSumTableからデータを取得
+    // ProductionSumTableから指定年のデータを取得
     const productionSumClient = TableClient.fromConnectionString(connectionString, productionSumTableName);
     const productionSumEntities = productionSumClient.listEntities<ProductionSumEntity>();
 
@@ -104,11 +133,6 @@ async function GetGroupRankingFromSum(
       yearlyCO2Reduction: number;
       yearlyCO2ReductionShortTerm: number;
       yearlyCO2ReductionLongTerm: number;
-      thisYearCO2Reduction: number;
-      totalCO2ReductionShortTerm: number;
-      totalCO2ReductionLongTerm: number;
-      totalCharcoal: number;
-      totalCharcoalVolume: number;
     }>();
 
     for await (const entity of productionSumEntities) {
@@ -119,36 +143,19 @@ async function GetGroupRankingFromSum(
       const co2Reduction = entity.co2Reduction || 0;
       const ipccLongTerm = entity.ipccLongTerm || 0;
 
-      if (!groupDataMap.has(groupId)) {
-        groupDataMap.set(groupId, {
-          yearlyCharcoal: 0,
-          yearlyCharcoalVolume: 0,
-          yearlyCO2Reduction: 0,
-          yearlyCO2ReductionShortTerm: 0,
-          yearlyCO2ReductionLongTerm: 0,
-          thisYearCO2Reduction: 0,
-          totalCO2ReductionShortTerm: 0,
-          totalCO2ReductionLongTerm: 0,
-          totalCharcoal: 0,
-          totalCharcoalVolume: 0,
-        });
-      }
+      // 指定年のデータのみを処理
+      if (year === targetYear) {
+        if (!groupDataMap.has(groupId)) {
+          groupDataMap.set(groupId, {
+            yearlyCharcoal: 0,
+            yearlyCharcoalVolume: 0,
+            yearlyCO2Reduction: 0,
+            yearlyCO2ReductionShortTerm: 0,
+            yearlyCO2ReductionLongTerm: 0,
+          });
+        }
 
-      const groupData = groupDataMap.get(groupId)!;
-
-      // 累積データ
-      groupData.totalCO2ReductionShortTerm += co2Reduction;
-      groupData.totalCO2ReductionLongTerm += ipccLongTerm;
-      groupData.totalCharcoal += charcoalProduced;
-      groupData.totalCharcoalVolume += charcoalVolume;
-
-      // 今年のデータ
-      if (year === currentYear) {
-        groupData.thisYearCO2Reduction += co2Reduction;
-      }
-
-      // 今年のデータ（ProductionSumTableは年次で合計されたデータ）
-      if (year === currentYear) {
+        const groupData = groupDataMap.get(groupId)!;
         groupData.yearlyCharcoal += charcoalProduced;
         groupData.yearlyCharcoalVolume += charcoalVolume;
         groupData.yearlyCO2Reduction += co2Reduction;
@@ -158,7 +165,7 @@ async function GetGroupRankingFromSum(
     }
 
     // 結果を配列に変換
-    const result: GroupRankingData[] = [];
+    const result: YearlyGroupRankingData[] = [];
     for (const [groupId, data] of groupDataMap) {
       const groupInfo = groupMap.get(groupId);
       const groupName = groupInfo?.name || "不明なグループ";
@@ -172,17 +179,12 @@ async function GetGroupRankingFromSum(
         yearlyCO2Reduction: data.yearlyCO2Reduction,
         yearlyCO2ReductionShortTerm: data.yearlyCO2ReductionShortTerm,
         yearlyCO2ReductionLongTerm: data.yearlyCO2ReductionLongTerm,
-        thisYearCO2Reduction: data.thisYearCO2Reduction,
-        totalCO2ReductionShortTerm: data.totalCO2ReductionShortTerm,
-        totalCO2ReductionLongTerm: data.totalCO2ReductionLongTerm,
-        totalCharcoal: data.totalCharcoal,
-        totalCharcoalVolume: data.totalCharcoalVolume,
         introductionPdfUrl,
       });
     }
 
-    // 累積炭素固定量でソート（降順）
-    result.sort((a, b) => b.totalCO2ReductionShortTerm - a.totalCO2ReductionShortTerm);
+    // CO2削減量（短期）でソート（降順）
+    result.sort((a, b) => b.yearlyCO2ReductionShortTerm - a.yearlyCO2ReductionShortTerm);
 
     return {
       status: 200,
@@ -193,11 +195,14 @@ async function GetGroupRankingFromSum(
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(result)
+      body: JSON.stringify({
+        year: targetYear,
+        data: result
+      })
     };
 
   } catch (error) {
-    context.log(`Error retrieving group ranking data: ${error}`);
+    context.log(`Error retrieving yearly group ranking data: ${error}`);
     
     return {
       status: 500,
@@ -210,17 +215,17 @@ async function GetGroupRankingFromSum(
       },
       body: JSON.stringify({ 
         error: "Internal Server Error",
-        message: "Failed to retrieve group ranking data"
+        message: "Failed to retrieve yearly group ranking data"
       })
     };
   }
 }
 
-app.http("GetGroupRankingFromSum", {
+app.http("GetYearlyGroupRankingFromSum", {
   methods: ["GET"],
-  route: "group-ranking-from-sum",
+  route: "yearly-group-ranking-from-sum",
   authLevel: "anonymous",
-  handler: GetGroupRankingFromSum
+  handler: GetYearlyGroupRankingFromSum
 });
 
-export { GetGroupRankingFromSum };
+export { GetYearlyGroupRankingFromSum };

@@ -19,6 +19,7 @@
     "deploy:dev": "NODE_ENV=development func azure functionapp publish carbontracker-api-linux --javascript",
     "deploy:prod": "NODE_ENV=production func azure functionapp publish carbontracker-api-linux-new --javascript",
     "test:yearly-report": "node tests/utils/run_yearly_report_test.js",
+    "test:yearly-report-2025": "node tests/utils/run_yearly_report_test_2025.js",
     "test:auth": "node tests/api/test_auth.js"
   },
   "dependencies": {

@@ -90,3 +90,5 @@ import "./functions/Health";
 import { Health } from "./functions/Health";
 import "./functions/GetGroupRankingFromSum";
 import { GetGroupRankingFromSum } from "./functions/GetGroupRankingFromSum";
+import "./functions/GetYearlyGroupRankingFromSum";
+import { GetYearlyGroupRankingFromSum } from "./functions/GetYearlyGroupRankingFromSum";
