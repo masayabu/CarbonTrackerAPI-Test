@@ -246,7 +246,7 @@ python create_admin_user_staging.py --non-interactive
 #### 生産データ集計の自動実行
 
 - **関数名**: `CreateProductionSumTimer`
-- **実行スケジュール**: 毎日深夜0:00（CRON形式: `0 0 0 * * *`）
+- **実行スケジュール**: 毎日日本時間0:00（CRON形式: `0 0 15 * * *`）
 - **機能**: 
   - ProductionTableからデータを取得
   - 年、groupId、materialTypeでグループ化

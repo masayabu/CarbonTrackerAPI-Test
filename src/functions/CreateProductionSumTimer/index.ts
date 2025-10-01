@@ -242,7 +242,7 @@ async function CreateProductionSumTimer(myTimer: Timer, context: InvocationConte
 }
 
 app.timer('CreateProductionSumTimer', {
-    schedule: '0 0 0 * * *', // 毎日深夜0:00に実行 (CRON形式)
+    schedule: '0 0 15 * * *', // 日本時間0:00 = UTC時間15:00（前日）に実行
     handler: CreateProductionSumTimer
 });
 
